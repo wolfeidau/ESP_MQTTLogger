@@ -25,13 +25,12 @@ ESP_MQTTLogger.h - ESP8266 MQTT Data Logger library
 
 #include <functional>
 
-#define DEBUG
+//#define MQTT_LOGGER_DEBUG
 
 class ESP_MQTTLogger
 {
   public:
-    ESP_MQTTLogger(IPAddress addr, Client& c, int port = 9000);
-    ESP_MQTTLogger(Client& c, int port = 9000);
+    ESP_MQTTLogger(Client& c, ESP8266WebServer * server);
     void handleClient();
     void begin();
     void setToken(String token);
@@ -53,8 +52,10 @@ class ESP_MQTTLogger
     String _mqttHost;
     String _mqttUser;
     bool _sendMessage;
-    ESP8266WebServer  _server;
+    ESP8266WebServer * _server;
     PubSubClient _client;
+  private:
+    String _nodeId = String("ESP_") + String(ESP.getChipId(), 16);
 };
 
 #endif //ESP_MQTTLogger_h

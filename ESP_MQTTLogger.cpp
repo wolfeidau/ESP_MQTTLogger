@@ -21,7 +21,7 @@ ESP_MQTTLogger.cpp - ESP8266 MQTT Data Logger library
 */
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
-#include <WiFiClient.h>
+#include <WiFiClientSecure.h>
 #include <ESP8266WebServer.h>
 #include <FS.h>
 #include <ArduinoJson.h>
@@ -33,20 +33,14 @@ ESP_MQTTLogger.cpp - ESP8266 MQTT Data Logger library
 
 const char * MQTT_AUTHORIZATION_HEADER = "Authorization";
 
-ESP_MQTTLogger::ESP_MQTTLogger(IPAddress addr, Client& c, int port) :
-  _server(addr, port),
+ESP_MQTTLogger::ESP_MQTTLogger(Client& c, ESP8266WebServer * server) :
   _client(c)
 {
-}
-
-ESP_MQTTLogger::ESP_MQTTLogger(Client& c, int port) :
-  _server(port),
-  _client(c)
-{
+  _server = server;
 }
 
 void ESP_MQTTLogger::handleClient() {
-  _server.handleClient();
+  _server->handleClient();
   if (_client.connected()) {
     _client.loop();
   }
@@ -63,16 +57,16 @@ void ESP_MQTTLogger::begin() {
 
   _loadMQTTUrl(); // attempt to load the mqtt credentials
 
-  _server.on("/mqttSetup", [this]() {
+  _server->on("/mqttSetup", [this]() {
     _mqttSetup();
   });
 
   //ask server to track these headers which we need for authentication
   const char * headerkeys[] = {"Authorization"} ;
   size_t headerkeyssize = sizeof(headerkeys)/sizeof(char*);
-  _server.collectHeaders(headerkeys, headerkeyssize);
+  _server->collectHeaders(headerkeys, headerkeyssize);
 
-  _server.begin();
+  _server->begin();
 
 }
 
@@ -86,16 +80,14 @@ bool ESP_MQTTLogger::connected() {
 
 bool ESP_MQTTLogger::connect() {
   if (_mqttUrl != "") {
-    return _client.connect(MQTT::Connect("arduinoClient")
+    return _client.connect(MQTT::Connect(_nodeId)
        .set_auth(_mqttUser, ""));
   }
 }
 
 void ESP_MQTTLogger::publish(String topic, String message) {
   if (connected()) {
-    char tmp[15];
-    sprintf(tmp, "esp8266-%06x", ESP.getChipId());
-    String t = String(tmp) + String('/') + topic;
+    String t = String(_nodeId) + String('/') + topic;
     _client.publish(t, message);
   }
 }
@@ -106,7 +98,7 @@ void ESP_MQTTLogger::_loadMQTTUrl() {
 
   if (mqttUrlFile) {
 
-#ifdef DEBUG
+#ifdef MQTT_LOGGER_DEBUG
    DEBUG_OUTPUT.println("MQTT URL config exists.");
 #endif
 
@@ -132,7 +124,7 @@ bool ESP_MQTTLogger::_saveMQTTUrl() {
     return false;
   }
 
-#ifdef DEBUG
+#ifdef MQTT_LOGGER_DEBUG
   DEBUG_OUTPUT.print("saving mqttUrl: ");
   DEBUG_OUTPUT.println(_mqttUrl);
 #endif
@@ -145,41 +137,41 @@ bool ESP_MQTTLogger::_saveMQTTUrl() {
 void ESP_MQTTLogger::_mqttSetup() {
 
   if (!_authenticate()){
-    _server.send(401, "text/plain", "Unauthorised");
+    _server->send(401, "text/plain", "Unauthorised");
     return;
   }
 
-  if(_server.hasArg("mqtt_url")) {
+  if(_server->hasArg("mqtt_url")) {
 
-    if (!_parseMQTTUrl(_server.arg("mqtt_url"))){
-      _server.send(400, "text/plain", "Invalid URL");
+    if (!_parseMQTTUrl(_server->arg("mqtt_url"))){
+      _server->send(400, "text/plain", "Invalid URL");
       return;
     }
 
-    _mqttUrl = _server.arg("mqtt_url");
+    _mqttUrl = _server->arg("mqtt_url");
 
-#ifdef DEBUG
+#ifdef MQTT_LOGGER_DEBUG
     DEBUG_OUTPUT.print("configuring mqttUrl: ");
     DEBUG_OUTPUT.println(_mqttUrl);
 #endif
 
     if (!_saveMQTTUrl()) {
-    _server.send(500, "text/plain", "Save configuration failed");
+    _server->send(500, "text/plain", "Save configuration failed");
     }
-    _server.send(200, "text/plain", "OK");
+    _server->send(200, "text/plain", "OK");
 
     return;
   }
 
-  _server.send(400, "text/plain", "");
+  _server->send(400, "text/plain", "");
 }
 
 bool ESP_MQTTLogger::_authenticate(){
 
-  if(_server.hasHeader(MQTT_AUTHORIZATION_HEADER)) {
-    String authReq = _server.header(MQTT_AUTHORIZATION_HEADER);
+  if(_server->hasHeader(MQTT_AUTHORIZATION_HEADER)) {
+    String authReq = _server->header(MQTT_AUTHORIZATION_HEADER);
 
-#ifdef DEBUG
+#ifdef MQTT_LOGGER_DEBUG
     DEBUG_OUTPUT.print("authReq: ");
     DEBUG_OUTPUT.println(authReq);
 #endif
@@ -214,7 +206,7 @@ bool ESP_MQTTLogger::_parseMQTTUrl(String mqtt_url){
   _mqttUser = mqtt_url.substring(0, at-1);
   _mqttHost = mqtt_url.substring(at+1);
 
-#ifdef DEBUG
+#ifdef MQTT_LOGGER_DEBUG
     DEBUG_OUTPUT.print("user: ");
     DEBUG_OUTPUT.println(_mqttUser);
     DEBUG_OUTPUT.print("host: ");
@@ -225,8 +217,9 @@ bool ESP_MQTTLogger::_parseMQTTUrl(String mqtt_url){
 }
 
 void ESP_MQTTLogger::_configureClient() {
-#ifdef DEBUG
-  DEBUG_OUTPUT.println("configure MQTT client");
+#ifdef MQTT_LOGGER_DEBUG
+  DEBUG_OUTPUT.println("MQTT server:");
+  DEBUG_OUTPUT.println(String(_mqttHost));
 #endif
-  _client.set_server(String(_mqttHost));
+  _client.set_server(String(_mqttHost), 8883);
 }
