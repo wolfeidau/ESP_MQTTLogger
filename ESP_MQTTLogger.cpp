@@ -33,10 +33,11 @@ ESP_MQTTLogger.cpp - ESP8266 MQTT Data Logger library
 
 const char * MQTT_AUTHORIZATION_HEADER = "Authorization";
 
-ESP_MQTTLogger::ESP_MQTTLogger(Client& c, ESP8266WebServer * server) :
+ESP_MQTTLogger::ESP_MQTTLogger(Client& c, ESP8266WebServer * server, int port) :
   _client(c)
 {
   _server = server;
+  _port = port;
 }
 
 void ESP_MQTTLogger::handleClient() {
@@ -217,9 +218,8 @@ bool ESP_MQTTLogger::_parseMQTTUrl(String mqtt_url){
 }
 
 void ESP_MQTTLogger::_configureClient() {
-#ifdef MQTT_LOGGER_DEBUG
   DEBUG_OUTPUT.println("MQTT server:");
   DEBUG_OUTPUT.println(String(_mqttHost));
-#endif
-  _client.set_server(String(_mqttHost), 8883);
+
+  _client.set_server(String(_mqttHost), _port);
 }

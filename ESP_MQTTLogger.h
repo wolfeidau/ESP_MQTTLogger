@@ -30,7 +30,7 @@ ESP_MQTTLogger.h - ESP8266 MQTT Data Logger library
 class ESP_MQTTLogger
 {
   public:
-    ESP_MQTTLogger(Client& c, ESP8266WebServer * server);
+    ESP_MQTTLogger(Client& c, ESP8266WebServer * server, int port = 1883);
     void handleClient();
     void begin();
     void setToken(String token);
