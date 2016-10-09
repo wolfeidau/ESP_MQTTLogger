@@ -81,15 +81,18 @@ bool ESP_MQTTLogger::connected() {
 
 bool ESP_MQTTLogger::connect() {
   if (_mqttUrl != "") {
-    return _client.connect(MQTT::Connect(_nodeId)
-       .set_auth(_mqttUser, ""));
+#ifdef MQTT_LOGGER_DEBUG
+    Serial.print("state: ");
+    Serial.println(_client.state());
+#endif
+    return _client.connect("test");
   }
 }
 
 void ESP_MQTTLogger::publish(String topic, String message) {
   if (connected()) {
     String t = String(_nodeId) + String('/') + topic;
-    _client.publish(t, message);
+    _client.publish(t.c_str(), message.c_str());
   }
 }
 
@@ -221,5 +224,6 @@ void ESP_MQTTLogger::_configureClient() {
   DEBUG_OUTPUT.println("MQTT server:");
   DEBUG_OUTPUT.println(String(_mqttHost));
 
-  _client.set_server(String(_mqttHost), _port);
+  //_client.setServer(String(_mqttHost).c_str(), _port);
+  _client.setServer(_mqttHost.c_str(), _port);
 }
