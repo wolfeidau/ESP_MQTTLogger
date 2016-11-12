@@ -85,7 +85,7 @@ bool ESP_MQTTLogger::connect() {
     Serial.print("state: ");
     Serial.println(_client.state());
 #endif
-    return _client.connect("test");
+    return _client.connect(_nodeId.c_str());
   }
 }
 
